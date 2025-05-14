@@ -1,7 +1,7 @@
 # Abjad-Books-Reviews
 📚 Abjad Books' Reviews Dataset This dataset contains Arabic book review metadata collected from Abjjad, a popular Arabic social reading platform. It includes information about book titles, authors, ratings, reviews, and user interactions.
 
-🔍 # Dataset Overview
+# Dataset Overview 🔍 
 | Column Name       | Description                                               |
 | ----------------- | --------------------------------------------------------- |
 | `BookBadge_Title` | The title of the book.                                    |
@@ -13,17 +13,17 @@
 | `Readers`         | The number of users who marked the book as read.          |
 | `Link`            | Direct link to the book’s page on the Abjjad website.     |
 
-📦 # Format:
+# Format 📦 :
 The dataset is provided as a CSV file encoded in UTF-8.
 
-🌍 Language
+# Language 🌍 :
 The content is entirely in Arabic.
 
-📄 Citation
+# Citation 📄 :
 If you use this dataset in your research or projects, please cite it as:
 Saja Nakhleh, and Haneen Jawad. (2025). Abjad Books' Reviews [Data set]. Kaggle. https://doi.org/10.34740/KAGGLE/DS/7415300
 
-📈 Potential Use Cases
+# Potential Use Cases 📈 :
 Sentiment analysis of Arabic book reviews
 
 Arabic natural language understanding (NLU) and NLP tasks
@@ -34,7 +34,7 @@ Book popularity prediction
 
 Author or genre trend analysis
 
-🚀 Example
+# Example🚀 :
 | BookBadge\_Title | Author               | Rating | Raters | Reviews | Readers |
 | ---------------- | -------------------- | ------ | ------ | ------- | ------- |
 | ماجدولين         | مصطفى لطفي المنفلوطي | 4.4    | 4057   | 4313    | 23055   |
