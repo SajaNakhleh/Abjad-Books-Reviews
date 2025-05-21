@@ -1,0 +1,249 @@
+
+# Install dependencies as needed:
+!pip install kagglehub
+!pip install beautifulsoup4
+!pip install requests
+!pip install arabic_reshaper
+!pip install python-bidi
+!pip install wordcloud
+!pip install transformers
+
+import kagglehub
+from kagglehub import KaggleDatasetAdapter
+from bs4 import BeautifulSoup
+
+import requests
+import time
+import pandas as pd
+
+import matplotlib.pyplot as plt
+
+from collections import Counter
+import re
+# Use a pipeline as a high-level helper
+from transformers import pipeline
+import seaborn as sns
+
+import matplotlib.pyplot as plt
+from collections import Counter
+import arabic_reshaper
+from bidi.algorithm import get_display
+from wordcloud import WordCloud, ImageColorGenerator
+
+# Set the path to the file you'd like to load
+file_path = "Abjad_books.csv"
+
+# Load the latest version
+df = kagglehub.load_dataset(
+  KaggleDatasetAdapter.PANDAS,
+  "sajanakhleh/abjad-books-reviews",
+  file_path,
+)
+
+print("First 5 records:")
+df.head()
+
+from bs4 import BeautifulSoup
+
+import requests
+import time
+df["Publish_date"] = ""
+for index, row in df.iterrows():
+    url = row["Link"]
+
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, "html.parser")
+
+            # Scrap the publishing date
+            publish_tag = soup.find("meta", itemprop="datePublished")
+            if publish_tag and publish_tag.has_attr("content"):
+                publish_date = publish_tag["content"]
+            else:
+                publish_date = "N/A"
+        else:
+            df.at[index, "Publish_date"] = "Failed to fetch"
+        df.at[index, "Publish_date"] = publish_date
+
+        #scrap the top 10 erviews:
+        # Find all review articles with blurringBody (up to 10)
+        review_texts = []
+        review_articles = soup.find_all("div", class_="blurringBody", limit=10)
+
+        for review_div in review_articles:
+            review_text = review_div.get_text(separator=" ", strip=True)
+            if review_text:
+                review_texts.append(review_text)
+
+        # Join reviews with delimiter (or keep as list if preferred)
+        combined_reviews = " || ".join(review_texts) if review_texts else "N/A"
+
+        df.at[index, "Top_10_Reviews"] = combined_reviews
+
+
+
+
+
+    except Exception as e:
+        df.at[index, "Full_Description"] = f"Error: {str(e)}"
+
+    time.sleep(1)  # ðŸ•’ Be polite: avoid hammering the server
+
+df
+
+df.to_csv("abjad_books_full.csv", index=False, encoding="utf-8-sig")
+
+"""#Creat the dataframe of the scraped reviews"""
+
+df=pd.read_csv("/content/abjad_books_full.csv")
+df.head(5)
+
+#print a sample
+print(df.loc[4, "Top_10_Reviews"])
+
+#show the reviews of the book of ID:4
+l=df.loc[4, "Top_10_Reviews"].split("||")
+print(len(l))
+l
+
+df.head()
+
+# Step 1: Split the 'reviews' column into lists
+df['review_list'] = df['Top_10_Reviews'].str.split(r'\|\|')
+
+# Step 2: Explode the list into separate rows
+Abjad_reviews = df.explode('review_list')
+
+# Step 3: Clean up and rename
+Abjad_reviews = Abjad_reviews.rename(columns={'review_list': 'review'})
+Abjad_reviews = Abjad_reviews[['review', 'BookBadge_Title', 'Rating']]
+#Abjad_reviews['review'] = Abjad_reviews['review'].str.strip()
+
+# Optional: Reset index
+Abjad_reviews = Abjad_reviews.reset_index(drop=True)
+
+# Preview
+Abjad_reviews.head(25)
+
+len(Abjad_reviews)
+
+# Drop rows where 'review' is null or only whitespace
+Abjad_reviews = Abjad_reviews[Abjad_reviews['review'].notna()]             # Remove NaN
+Abjad_reviews = Abjad_reviews[Abjad_reviews['review'].str.strip() != '']  # Remove empty strings or spaces
+
+# Optional: Reset index after dropping
+Abjad_reviews = Abjad_reviews.reset_index(drop=True)
+
+# Preview the cleaned DataFrame
+Abjad_reviews.head()
+
+len(Abjad_reviews)
+
+Abjad_reviews.to_csv("Abjad_reviews.csv", index=False, encoding="utf-8-sig")
+
+"""#Sentiment Analysis"""
+
+book_reviews=pd.read_csv("/content/Abjad_reviews.csv")
+book_reviews.head(5)
+
+len(book_reviews)
+
+pipe = pipeline("text-classification", model="mofawzy/bert-labr-unbalanced")
+
+#Show positive review
+text = book_reviews.loc[0, "review"]
+text
+
+#Predict positive review
+output=pipe.predict(text)
+output
+
+#Show negative review
+text = book_reviews.loc[1977, "review"]
+text
+
+#Predict negative review
+output=pipe.predict(text)
+output
+
+def classify_review(text):
+    truncated_text = text[:512]
+
+    output = pipe(truncated_text, truncation=True)[0]  # The result is a list with one dict
+    label = output['label']
+    score = output['score']
+
+    # Convert label to human-readable class
+    sentiment = "Positive" if label == "LABEL_1" else "Negative"
+
+    return pd.Series([sentiment, score], index=['class', 'confidence'])
+
+# Apply to all reviews
+Abjad_reviews[['class', 'confidence']] = Abjad_reviews['review'].apply(classify_review)
+
+# Preview results
+Abjad_reviews.tail(20)
+
+Abjad_reviews.to_csv("Abjad_reviews_classified.csv", index=False, encoding="utf-8-sig")
+
+
+
+"""#Visualization"""
+
+Abjad_reviews=pd.read_csv("/content/Abjad_reviews_classified.csv")
+Abjad_reviews.head()
+
+# Count the class values
+class_counts = Abjad_reviews['class'].value_counts()
+
+# Plotting
+plt.figure(figsize=(6, 4))
+class_counts.plot(kind='bar', color=['skyblue', 'salmon'])
+print(class_counts)
+plt.title('Distribution of Review Sentiments')
+plt.xlabel('Class')
+plt.ylabel('Count')
+plt.xticks(rotation=0)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+plt.tight_layout()
+plt.show()
+
+# Step 1: Combine all reviews into one text
+all_text = ' '.join(Abjad_reviews['review'].dropna().astype(str))
+
+# Step 2: Normalize and tokenize (remove punctuation, lowercase, split)
+# You can adjust regex for more accurate Arabic tokenization if needed
+words = re.findall(r'\b\w+\b', all_text)
+
+# Step 3: Count word frequencies
+word_counts = Counter(words)
+
+# Step 4: Convert to DataFrame
+word_freq_df = pd.DataFrame(word_counts.items(), columns=['word', 'count'])
+
+# Step 5: Get top 100 repeated words
+top_100_words = word_freq_df.sort_values(by='count', ascending=False).head(100).reset_index(drop=True)
+
+# Preview
+print(top_100_words)
+
+
+
+def column_to_wordcloud(df, column, font_file, stopwords):
+
+    text = " ".join(arabic_reshaper.reshape(t) for t in df[column].dropna())
+    # create and display the wordcloud
+    wordcloud = WordCloud(font_path=font_file, width = 3500, height = 2000, random_state=1, background_color='white', colormap='Set2', collocations=False,
+                      stopwords = stopwords).generate(text)
+    plt.imshow(wordcloud, interpolation="bilinear")
+    plt.axis("off")
+    plt.show()
+
+stopwords = pd.read_csv("/content/arabic_dialects_stopwords.csv")["word"].tolist()
+stopwords = [arabic_reshaper.reshape(s) for s in stopwords]
+print(len(stopwords))
+
+column_to_wordcloud(Abjad_reviews,"review","/content/Amiri-Regular.ttf",stopwords)
+
